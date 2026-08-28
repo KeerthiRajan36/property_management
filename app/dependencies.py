@@ -1,5 +1,5 @@
 from fastapi import Depends
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import HTTPBearer,HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -7,13 +7,15 @@ from app.exceptions import AuthError, PermissionError_
 from app.models.user import User, UserRole
 from app.utils.security import decode_token
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=False)
+oauth2_scheme = HTTPBearer()
 
 
 def get_current_user(
-    token: str = Depends(oauth2_scheme),
+    cred: HTTPAuthorizationCredentials = Depends(oauth2_scheme),
     db: Session = Depends(get_db),
 ) -> User:
+
+    token = cred.credentials
     if not token:
         raise AuthError("Not authenticated")
     payload = decode_token(token)
@@ -29,9 +31,7 @@ def get_current_user(
 
 
 def require_roles(*roles: UserRole):
-    """Dependency factory for Role-Based Access Control.
-    Usage: Depends(require_roles(UserRole.SUPER_ADMIN, UserRole.PROPERTY_MANAGER))
-    """
+
 
     def checker(current_user: User = Depends(get_current_user)) -> User:
         if current_user.role not in roles:
